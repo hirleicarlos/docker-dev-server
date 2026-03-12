@@ -66,15 +66,66 @@ Para executar este ambiente é necessário ter instalado:
 - Docker
 - Docker Compose
 
+Verificar instalação:
+
+```bash
+docker --version
+docker compose version
+```
+
 ---
 
 ## Como iniciar o servidor
 
-Clone o repositório do projeto no GitHub.
+Clone o repositório:
 
-Entre na pasta do projeto.
+```bash
+git clone https://github.com/hirleicarlos/docker-dev-server.git
+```
 
-Inicie os containers utilizando Docker Compose.
+Entre na pasta do projeto:
+
+```bash
+cd docker-dev-server
+```
+
+Inicie os containers:
+
+```bash
+docker compose up -d
+```
+
+---
+
+## Parar o servidor
+
+```bash
+docker compose down
+```
+
+---
+
+## Reiniciar o servidor
+
+```bash
+docker compose restart
+```
+
+---
+
+## Ver logs
+
+```bash
+docker compose logs -f
+```
+
+---
+
+## Acessar container
+
+```bash
+docker exec -it docker-dev-server bash
+```
 
 ---
 
@@ -104,7 +155,10 @@ Este projeto foi criado para fornecer um ambiente de desenvolvimento local basea
 
 Hirlei Carlos
 
-GitHub  
+🌐 Site  
+https://hirleicarlos.github.io
+
+💻 GitHub  
 https://github.com/hirleicarlos
 
 ---
