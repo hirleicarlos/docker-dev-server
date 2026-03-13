@@ -102,3 +102,5 @@ ssl/*
 *.key
 *.crt
 
+ssl/localhost.crt
+ssl/localhost.key
