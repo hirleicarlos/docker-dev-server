@@ -90,3 +90,15 @@ logs/
 *.tar
 *.tar.gz
 *.rar
+
+# =========================
+# SSL
+# =========================
+
+ssl/*
+*.log
+.DS_Store
+*Zone.Identifier*
+*.key
+*.crt
+
