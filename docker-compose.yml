@@ -1,3 +1,5 @@
+version: "1.1.0"
+
 services:
   web:
     build: .
@@ -6,7 +8,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - /home/hirleicarlos/projetos:/var/www/html
+      - /home/hirleicarlos/projetos:/var/www/html:rw
     restart: unless-stopped
     depends_on:
       - db
@@ -17,13 +19,10 @@ services:
     restart: unless-stopped
     environment:
       MARIADB_ROOT_PASSWORD: root
-      MARIADB_DATABASE: dev
-      MARIADB_USER: dev
-      MARIADB_PASSWORD: dev
     ports:
       - "3307:3306"
     volumes:
-      - mariadb_data:/var/lib/mysql
+      - /home/hirleicarlos/db:/var/lib/mysql
 
   phpmyadmin:
     image: phpmyadmin:latest
@@ -32,12 +31,19 @@ services:
     environment:
       PMA_HOST: db
       PMA_PORT: 3306
-      PMA_USER: root
-      PMA_PASSWORD: root
     ports:
       - "8081:80"
     depends_on:
       - db
 
-volumes:
-  mariadb_data:
+  node:
+    image: node:20
+    container_name: node_server
+    working_dir: /app
+    volumes:
+      - /home/hirleicarlos/projetos:/app
+    ports:
+      - "3000:3000"
+      - "8082:8082"
+    tty: true
+    stdin_open: true
