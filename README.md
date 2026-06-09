@@ -1,123 +1,187 @@
-# Docker Development Server
+# Hirlei Carlos - Docker Development Server
 
-Ambiente de desenvolvimento web utilizando **Docker**, configurado com **Apache, Nginx, PHP e HTTPS local** para facilitar o desenvolvimento de aplicações web em ambiente isolado.
-
-Este ambiente permite executar diferentes tipos de projetos web em um servidor replicável e padronizado.
-
-Pode ser utilizado para desenvolver:
-
-* CMS (Joomla, WordPress, Drupal)
-* Frameworks (Laravel, Symfony, CodeIgniter)
-* Sites estáticos
-* APIs
-* Aplicações web personalizadas
+![Status](https://img.shields.io/badge/status-ativo-success)
+![Stack](https://img.shields.io/badge/stack-Docker%20%7C%20Apache%20%7C%20Nginx-blue)
+![PHP](https://img.shields.io/badge/PHP-8.3-777BB4)
+![Bancos](https://img.shields.io/badge/db-MariaDB%2011%20%7C%20PostgreSQL%2017-green)
+![SSL](https://img.shields.io/badge/SSL-local-orange)
+![Windows](https://img.shields.io/badge/Windows-Docker%20Desktop%20%2B%20WSL-black)
 
 ---
 
-# Tecnologias utilizadas
+## Visao Geral
 
-* Docker
-* Docker Compose
-* Apache
-* Nginx
-* PHP
-* PHP-FPM
-* MariaDB
-* PostgreSQL
-* SSL (HTTPS local)
-* Linux / WSL
+Este repositório mantém um ambiente local de desenvolvimento web com Docker Desktop no Windows e integração WSL/Ubuntu.
+
+O servidor foi organizado para testar a mesma base de projetos em dois servidores web separados:
+
+- Apache, acessado por domínios `*.1.localhost`
+- Nginx, acessado por domínios `*.2.localhost`
+- PHP 8.3, alinhado ao ambiente usado nos servidores e clientes
+- MariaDB 11 para Joomla, WordPress e aplicações PHP
+- PostgreSQL 17 para testes com Joomla 6 e outros projetos
+- SSL local com CA própria, sem versionar certificados privados
+- HAProxy como roteador frontal nas portas locais 80 e 443
+
+O objetivo é permitir testes reais entre Apache e Nginx sem depender de portas visíveis no navegador.
 
 ---
 
-# Estrutura do projeto
+## Arquitetura
 
+```text
+Navegador Windows
+      |
+      | http/https
+      v
+127.0.0.1:80 / 127.0.0.1:443
+      |
+      v
+docker_router - HAProxy
+      |
+      +-- *.1.localhost  -> localhost1 - Apache + PHP 8.3
+      |
+      +-- *.2.localhost  -> localhost2 - Nginx
+                              |
+                              v
+                         php_fpm_server - PHP-FPM 8.3
 ```
-docker-dev-server/
-├── docker-compose.yml
-├── Dockerfile
-├── entrypoint.sh
-├── apache/
-│   ├── conf/
-│   │   └── servername.conf
-│   └── sites/
-│       ├── vhost.conf
-│       └── vhost-ssl.conf
-├── php/
-│   └── php.ini
-└── ssl/
+
+O Nginx não passa pelo Apache. O roteamento acontece antes, no container `docker_router`.
+
+---
+
+## Acessos Locais
+
+### Joomla 6
+
+| Ambiente | URL | Servidor |
+|----------|-----|----------|
+| Apache | `https://joomla6.1.localhost/` | `localhost1` |
+| Nginx | `https://joomla6.2.localhost/` | `localhost2` |
+| Padrao legado | `https://joomla6.localhost/` | Apache |
+
+### Joomla 5
+
+| Ambiente | URL | Servidor |
+|----------|-----|----------|
+| Apache | `https://joomla5.1.localhost/` | `localhost1` |
+| Nginx | `https://joomla5.2.localhost/` | `localhost2` |
+| Padrao legado | `https://joomla5.localhost/` | Apache |
+
+### Ferramentas
+
+| Serviço | URL |
+|---------|-----|
+| phpMyAdmin | `http://localhost:8081/` |
+| Node | `http://localhost:3000/` |
+| Node alternativo | `http://localhost:8082/` |
+
+> Não use `:8443` para o Nginx nesta versão. O acesso correto é sem porta: `https://projeto.2.localhost/`.
+
+---
+
+## Estrutura do Projeto
+
+```text
+docker-server/
+|
+|-- docker-compose.yml
+|-- Dockerfile
+|-- Dockerfile.fpm
+|-- entrypoint.sh
+|-- .env.example
+|
+|-- apache/
+|   |-- conf/
+|   |   `-- servername.conf
+|   `-- sites/
+|       |-- vhost.conf
+|       `-- vhost-ssl.conf
+|
+|-- haproxy/
+|   `-- haproxy.cfg
+|
+|-- nginx/
+|   `-- conf/
+|       `-- default.conf
+|
+|-- php/
+|   `-- php.ini
+|
+`-- ssl/
+    |-- openssl-localhost.cnf
+    |-- openssl-root-ca.cnf
+    |-- local-root-ca.crt        gerado localmente, ignorado no Git
+    |-- local-root-ca.key        gerado localmente, ignorado no Git
+    |-- localhost.crt           gerado localmente, ignorado no Git
+    `-- localhost.key           gerado localmente, ignorado no Git
 ```
 
-Os certificados SSL são gerados localmente após a instalação.
+---
+
+## Servicos Docker
+
+| Serviço Compose | Container | Imagem | Função |
+|-----------------|-----------|--------|--------|
+| `router` | `docker_router` | `haproxy:3.2-alpine` | Entrada HTTP/HTTPS e roteamento por host |
+| `web` | `localhost1` | `docker-dev-server-apache:local` | Apache + PHP 8.3 |
+| `nginx` | `localhost2` | `nginx:1.29-alpine` | Nginx separado |
+| `php-fpm` | `php_fpm_server` | `docker-dev-server-php-fpm:local` | PHP-FPM 8.3 para Nginx |
+| `db` | `mariadb_server` | `mariadb:11` | Banco MariaDB |
+| `postgres` | `postgres_server` | `postgres:17` | Banco PostgreSQL |
+| `phpmyadmin` | `phpmyadmin_server` | `phpmyadmin:latest` | Administração MariaDB |
+| `node` | `node_server` | `node:20` | Ambiente Node.js |
 
 ---
 
-# Funcionalidades
+## Variaveis de Ambiente
 
-* Ambiente de desenvolvimento containerizado
-* Apache configurado com VirtualHost
-* Nginx configurado para testar os mesmos projetos em paralelo
-* MariaDB e PostgreSQL para testes com Joomla 6
-* Suporte a HTTPS local
-* Configuração customizada de PHP
-* Estrutura preparada para múltiplos projetos web
-* Isolamento de dependências
-* Inicialização rápida utilizando Docker
-
----
-
-# Requisitos
-
-Para executar este ambiente é necessário ter instalado:
-
-* Docker
-* Docker Compose
-
-Verifique a instalação:
+Copie o exemplo:
 
 ```bash
-docker --version
-docker compose version
+cp .env.example .env
 ```
+
+Configuração principal usada neste ambiente:
+
+```env
+PROJECTS_PATH=/home/hirleicarlos/projetos
+DB_PATH=/home/hirleicarlos/db
+POSTGRES_PATH=/home/hirleicarlos/postgres
+
+HOST_UID=1000
+HOST_GID=1000
+PHP_VERSION=8.3
+
+MARIADB_DATABASE=joomla6
+MARIADB_USER=joomla
+MARIADB_PASSWORD=joomla
+
+POSTGRES_DB=postgres
+POSTGRES_USER=joomla
+POSTGRES_PASSWORD=joomla
+
+ROUTER_BIND_IP=127.0.0.1
+ROUTER_HTTP_PORT=80
+ROUTER_HTTPS_PORT=443
+
+DB_PORT=3307
+POSTGRES_PORT=5432
+PHPMYADMIN_PORT=8081
+NODE_PORT=3000
+NODE_ALT_PORT=8082
+```
+
+Use caminhos Linux no `.env`, porque o Compose roda dentro do Ubuntu/WSL. Não use `\\wsl.localhost\...` nos volumes do Docker.
 
 ---
 
-# Instalação
+## SSL Local
 
-Clone o repositório:
+Os arquivos de certificado não entram no Git. Apenas os arquivos `.cnf` ficam versionados para permitir recriar a estrutura.
 
-```bash
-git clone https://github.com/hirleicarlos/docker-dev-server.git
-```
-
-Entre na pasta do projeto:
-
-```bash
-cd docker-dev-server
-```
-
----
-
-# Gerar certificado SSL local
-
-Como as chaves SSL não são armazenadas no repositório, é necessário gerar um certificado local.
-
-Execute:
-
-```bash
-mkdir ssl
-```
-
-Gerar certificado:
-
-```bash
-openssl req -x509 -nodes -days 365 \
--newkey rsa:2048 \
--keyout ssl/localhost.key \
--out ssl/localhost.crt \
--subj "/C=BR/ST=Local/L=Local/O=Dev/CN=localhost"
-```
-
-Para a configuracao atual com Apache em `*.1.localhost`, Nginx em `*.2.localhost` e compatibilidade com `*.localhost1`/`*.localhost2`, prefira gerar uma CA local e um certificado de servidor assinado por ela:
+Gerar a CA local e o certificado do servidor:
 
 ```bash
 mkdir -p ssl
@@ -148,125 +212,57 @@ chmod 600 ssl/*.key
 chmod 644 ssl/*.crt ssl/*.csr ssl/*.srl
 ```
 
-O Apache e o Nginx usam `ssl/localhost.crt` e `ssl/localhost.key`. Para o navegador confiar sem aviso, importe `ssl/local-root-ca.crt` como autoridade raiz confiavel no Windows.
-
-No PowerShell, para confiar a CA local no usuario atual do Windows:
+Confiar a CA no Windows, no usuário atual:
 
 ```powershell
-Import-Certificate -FilePath "\\wsl.localhost\Ubuntu\home\hirleicarlos\docker-server\ssl\local-root-ca.crt" -CertStoreLocation Cert:\CurrentUser\Root
+Import-Certificate `
+  -FilePath "\\wsl.localhost\Ubuntu\home\hirleicarlos\docker-server\ssl\local-root-ca.crt" `
+  -CertStoreLocation Cert:\CurrentUser\Root
 ```
 
-No Firefox, habilite o uso das raizes do sistema com `security.enterprise_roots.enabled=true` e reinicie o navegador.
+No Firefox, habilite `security.enterprise_roots.enabled=true` em `about:config` e reinicie o navegador.
 
 ---
 
-# Docker Desktop no Windows
+## Docker Desktop no Windows
 
-O projeto usa Docker Desktop para Windows com integracao WSL. Como os arquivos estao dentro do Ubuntu, execute o Compose pelo WSL.
+Este projeto deve ser executado pelo WSL, usando o engine do Docker Desktop.
 
-No Docker Desktop, confirme em Settings > Resources > WSL Integration que a distro Ubuntu esta habilitada.
+No Docker Desktop, confira:
 
-Pelo PowerShell:
+```text
+Settings > Resources > WSL Integration > Ubuntu habilitado
+```
+
+Subir pelo PowerShell:
 
 ```powershell
-Copy-Item .env.example .env
 wsl -d Ubuntu --cd /home/hirleicarlos/docker-server -- docker compose config
 wsl -d Ubuntu --cd /home/hirleicarlos/docker-server -- docker compose up -d --build
 ```
 
-Dentro do Ubuntu/WSL:
+Subir dentro do Ubuntu/WSL:
 
 ```bash
-cp .env.example .env
+cd /home/hirleicarlos/docker-server
 docker compose config
 docker compose up -d --build
 ```
 
-No arquivo `.env`, use caminhos Linux:
-
-```env
-PROJECTS_PATH=/home/hirleicarlos/projetos
-DB_PATH=/home/hirleicarlos/db
-POSTGRES_PATH=/home/hirleicarlos/postgres
-```
-
-Evite colocar `//wsl.localhost/...` nos volumes do Compose; esse caminho e para o Windows acessar arquivos do WSL e pode montar vazio no container.
-
-Verifique se o WSL esta usando o mesmo engine do Docker Desktop:
+Verificar se Windows e WSL estão usando o mesmo Docker:
 
 ```powershell
 docker info --format "{{.OperatingSystem}}"
 wsl -d Ubuntu -- docker info --format "{{.OperatingSystem}}"
 ```
 
-Se o comando do Windows mostrar `Docker Desktop` e o comando do WSL mostrar `Docker Engine - Community`, existem dois engines separados. Nesse caso, ative a integracao em Docker Desktop > Settings > Resources > WSL Integration > Ubuntu, reinicie o terminal e confirme de novo antes de subir o projeto.
-
-A imagem local do Apache sera criada como:
-
-```text
-docker-dev-server-apache:local
-```
-
-Container do Apache:
-
-```text
-localhost1
-```
-
-A imagem local do PHP-FPM usado pelo Nginx sera criada como:
-
-```text
-docker-dev-server-php-fpm:local
-```
-
-Container do Nginx:
-
-```text
-localhost2
-```
-
-Acessos principais:
-
-```text
-Apache Joomla 5: https://joomla5.1.localhost/
-Nginx Joomla 5:  https://joomla5.2.localhost:8443/
-Apache Joomla 6: https://joomla6.1.localhost/
-Nginx Joomla 6:  https://joomla6.2.localhost:8443/
-Legado:          https://joomla5.localhost/ redireciona para https://joomla5.1.localhost/
-phpMyAdmin:      http://localhost:8081/
-```
-
-Nginx usa portas proprias para nao passar pelo Apache: `8080` no HTTP e `8443` no HTTPS. Os nomes `https://joomla5.localhost1/` e `https://joomla5.localhost2:8443/` continuam aceitos como compatibilidade, mas precisam de entradas no `hosts` do Windows porque `localhost1` e `localhost2` nao sao dominios reservados pelo navegador.
-
-Banco MariaDB para Joomla:
-
-```text
-Host: db
-Porta interna: 3306
-Banco: joomla6
-Usuario: joomla
-Senha: joomla
-Porta no host: 3307
-```
-
-Banco PostgreSQL para Joomla:
-
-```text
-Host: postgres
-Porta interna: 5432
-Banco: joomla6
-Usuario: joomla
-Senha: joomla
-Porta no host: 5432
-```
-
 ---
 
-# Fluxo padrao apos mudancas
+## Fluxo Padrao Apos Mudancas
 
-Sempre que alterar `docker-compose.yml`, `Dockerfile`, `Dockerfile.fpm`, configuracoes do Apache, Nginx ou PHP, limpe os containers antigos e suba tudo novamente com build.
+Sempre que alterar `docker-compose.yml`, `Dockerfile`, `Dockerfile.fpm`, Apache, Nginx, HAProxy, PHP ou SSL, recrie a stack.
 
-No PowerShell, para este projeto dentro do Ubuntu/WSL:
+PowerShell:
 
 ```powershell
 wsl -d Ubuntu --cd /home/hirleicarlos/docker-server -- docker compose down --remove-orphans
@@ -274,37 +270,132 @@ wsl -d Ubuntu --cd /home/hirleicarlos/docker-server -- docker compose build --no
 wsl -d Ubuntu --cd /home/hirleicarlos/docker-server -- docker compose up -d --force-recreate
 ```
 
-Dentro do Ubuntu/WSL:
+Ubuntu/WSL:
 
 ```bash
+cd /home/hirleicarlos/docker-server
 docker compose down --remove-orphans
 docker compose build --no-cache
 docker compose up -d --force-recreate
 ```
 
-Isso recria os containers e atualiza as imagens locais sem apagar os dados dos bancos. Para apagar tambem os dados dos bancos, use volumes separados com cuidado.
+Esse fluxo recria containers e imagens, mas preserva os dados em:
 
----
-
-# Iniciar o servidor
-
-Execute:
-
-```bash
-docker compose up -d --build
+```text
+/home/hirleicarlos/db
+/home/hirleicarlos/postgres
 ```
 
 ---
 
-# Parar o servidor
+## Hosts do Windows
+
+Para os principais domínios locais, use:
+
+```text
+127.0.0.1 joomla5.localhost joomla6.localhost joomla5.1.localhost joomla6.1.localhost joomla5.2.localhost joomla6.2.localhost localhost1 localhost2
+```
+
+Local do arquivo:
+
+```text
+C:\Windows\System32\drivers\etc\hosts
+```
+
+Domínios terminados em `.localhost` geralmente resolvem para `127.0.0.1`, mas o `hosts` deixa o ambiente previsível no Windows e no Firefox.
+
+---
+
+## Bancos de Dados
+
+### MariaDB
+
+Uso interno nos containers:
+
+```text
+Host: db
+Porta: 3306
+Banco: joomla6
+Usuario: joomla
+Senha: joomla
+```
+
+Uso no Windows/DBeaver:
+
+```text
+Host: localhost
+Porta: 3307
+Banco: joomla6
+Usuario: joomla
+Senha: joomla
+```
+
+### PostgreSQL
+
+Uso interno nos containers:
+
+```text
+Host: postgres
+Porta: 5432
+Banco inicial: postgres
+Usuario: joomla
+Senha: joomla
+```
+
+Uso no Windows/DBeaver:
+
+```text
+Host: localhost
+Porta: 5432
+Banco inicial: postgres
+Usuario: joomla
+Senha: joomla
+```
+
+O PostgreSQL inicia em `postgres` para permitir criar e apagar bancos Joomla manualmente pelo DBeaver. Para apagar um banco, conecte em `postgres`, não no banco que será excluído.
+
+---
+
+## Comandos Uteis
+
+Status dos containers:
+
+```bash
+docker compose ps
+```
+
+Logs gerais:
+
+```bash
+docker compose logs -f
+```
+
+Logs de um serviço:
+
+```bash
+docker compose logs -f router
+docker compose logs -f web
+docker compose logs -f nginx
+docker compose logs -f php-fpm
+docker compose logs -f postgres
+```
+
+Acessar containers:
+
+```bash
+docker compose exec web bash
+docker compose exec php-fpm bash
+docker compose exec postgres psql -U joomla -d postgres
+docker compose exec db mariadb -u joomla -pjoomla joomla6
+```
+
+Parar:
 
 ```bash
 docker compose down
 ```
 
----
-
-# Reiniciar o servidor
+Reiniciar:
 
 ```bash
 docker compose restart
@@ -312,103 +403,75 @@ docker compose restart
 
 ---
 
-# Ver logs
+## Testes Rapidos
+
+Validar Apache:
 
 ```bash
-docker compose logs -f
+curl -k -I https://joomla6.1.localhost/
 ```
 
----
-
-# Acessar o container
+Validar Nginx:
 
 ```bash
-docker compose exec web bash
-docker compose exec php-fpm bash
-docker compose exec postgres psql -U joomla -d joomla6
+curl -k -I https://joomla6.2.localhost/
+```
+
+Validar roteamento HTTP:
+
+```bash
+curl -I http://joomla6.1.localhost/
+curl -I http://joomla6.2.localhost/
+```
+
+Validar bancos:
+
+```bash
+docker compose exec db mariadb -u joomla -pjoomla -e "SELECT VERSION();"
+docker compose exec postgres psql -U joomla -d postgres -c "SELECT version();"
 ```
 
 ---
 
-# Acessar o servidor no navegador
+## Arquivos Locais Nao Versionados
 
-Após iniciar o ambiente, o servidor poderá ser acessado em:
+Este projeto ignora arquivos locais e sensíveis:
 
-```
-http://pasta.localhost1
-https://pasta.localhost1
-```
-
-Para testar o mesmo projeto no Nginx, use o sufixo `.localhost2`:
-
-```
-http://pasta.localhost2
-https://pasta.localhost2
-```
-
-Exemplos com Joomla:
-
-```
-https://joomla5.localhost1
-https://joomla5.localhost2
-https://joomla6.localhost1
-https://joomla6.localhost2
-```
-
-No Docker, os containers aparecem como `localhost1` para Apache e `localhost2` para Nginx. O Apache tambem faz a entrada HTTPS para os dominios `*.localhost2` e encaminha internamente para o Nginx, permitindo usar HTTPS sem porta no navegador.
-
-Para abrir no navegador do Windows, adicione no arquivo `hosts`:
-
-```text
-127.0.0.1 localhost1
-127.0.0.1 localhost2
-127.0.0.1 joomla5.localhost1
-127.0.0.1 joomla5.localhost2
-127.0.0.1 joomla6.localhost1
-127.0.0.1 joomla6.localhost2
-```
-
-Ha um arquivo pronto com as entradas principais em:
-
-```text
-/home/hirleicarlos/projetos/tarefas/Docker servidor ajustes/hosts-docker-servidor.txt
-```
-
-Adicione os domínios desejados no arquivo **hosts** do sistema.
-
-Exemplo:
-
-```
-127.0.0.1 joomla.localhost
-127.0.0.1 projeto.localhost
-```
+| Caminho | Motivo |
+|---------|--------|
+| `.env` | Senhas, portas e caminhos locais |
+| `ssl/*.key` | Chaves privadas SSL |
+| `ssl/*.crt` | Certificados gerados localmente |
+| `ssl/*.csr` | Requisições de certificado |
+| `ssl/*.srl` | Serial da CA local |
+| `.claude/` | Configuração local de agente |
+| `AGENTS.md` | Instruções locais de agente |
+| `CLAUDE.md` | Instruções locais de agente |
 
 ---
 
-# Objetivo do projeto
+## Principios de Engenharia
 
-Este projeto foi criado para fornecer um ambiente de desenvolvimento local baseado em containers e também para demonstrar conhecimentos em:
-
-* Docker
-* Containers
-* Infraestrutura de desenvolvimento
-* Configuração de servidores web
-* DevOps básico
-
----
-
-# Autor
-
-Hirlei Carlos
-
-🌐 Site
-https://hirleicarlos.github.io
-
-💻 GitHub
-https://github.com/hirleicarlos
+| Princípio | Aplicação |
+|-----------|-----------|
+| Separação real de servidores | Apache e Nginx rodam em containers diferentes |
+| Entrada única | HAProxy recebe 80/443 e roteia por domínio |
+| SSL local reproduzível | `.cnf` versionado, certificados privados ignorados |
+| PHP consistente | Apache e PHP-FPM usam PHP 8.3 |
+| Bancos independentes | MariaDB e PostgreSQL rodam separados |
+| Compatível com Docker Desktop | Compose executado no WSL com engine do Windows |
+| Rebuild previsível | Fluxo padrão com `down`, `build --no-cache` e `up --force-recreate` |
 
 ---
 
-# Licença
+## 📬 Contato
 
-Este projeto está disponível para estudo e uso pessoal.
+- 🌐 Site: [hirleicarlos.github.io](https://hirleicarlos.github.io)
+- 💼 LinkedIn: [linkedin.com/in/hirleicarlos](https://linkedin.com/in/hirleicarlos)
+- 🐙 GitHub: [github.com/hirleicarlos](https://github.com/hirleicarlos)
+- ✉️ E-mail: prof.hirleicarlos@gmail.com
+
+---
+
+© 2026 — Hirlei Carlos<br>
+Desenvolvedor Full Stack Sênior | PHP & Joomla | Docker | Apache & Nginx | Ambientes Locais
