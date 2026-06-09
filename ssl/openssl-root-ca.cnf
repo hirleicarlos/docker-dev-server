@@ -1,0 +1,18 @@
+[req]
+default_bits = 4096
+distinguished_name = req_distinguished_name
+x509_extensions = v3_ca
+prompt = no
+
+[req_distinguished_name]
+C = BR
+ST = Local
+L = Local
+O = Docker Dev Server
+OU = Local Dev CA
+CN = Docker Dev Local Root CA
+
+[v3_ca]
+basicConstraints = critical, CA:TRUE, pathlen:0
+keyUsage = critical, keyCertSign, cRLSign
+subjectKeyIdentifier = hash

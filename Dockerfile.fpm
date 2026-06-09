@@ -1,5 +1,5 @@
 ARG PHP_VERSION=8.3
-FROM php:${PHP_VERSION}-apache
+FROM php:${PHP_VERSION}-fpm
 
 ARG UID=1000
 ARG GID=1000
@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y \
     zip \
     nano \
     default-mysql-client \
+    postgresql-client \
     gnupg \
     ca-certificates \
     lsb-release \
@@ -37,7 +38,6 @@ RUN apt-get update && apt-get install -y \
         exif \
         bcmath \
         opcache \
-    && a2enmod rewrite vhost_alias ssl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -45,38 +45,15 @@ RUN pecl install xdebug \
     && docker-php-ext-enable xdebug
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y nodejs \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
 COPY php/php.ini /usr/local/etc/php/php.ini
-COPY apache/sites/vhost.conf /etc/apache2/sites-available/000-default.conf
-COPY apache/sites/vhost-ssl.conf /etc/apache2/sites-available/default-ssl.conf
-COPY apache/conf/servername.conf /etc/apache2/conf-enabled/servername.conf
 
-RUN mkdir -p /etc/apache2/ssl
-
-COPY ssl/localhost.crt /etc/apache2/ssl/localhost.crt
-COPY ssl/localhost.key /etc/apache2/ssl/localhost.key
-
-RUN a2ensite default-ssl \
-    && touch /var/log/php_errors.log \
-    && chmod 666 /var/log/php_errors.log
-
-# Faz www-data usar o mesmo UID/GID do usuario Linux/WSL
-RUN usermod -u ${UID} www-data \
+RUN touch /var/log/php_errors.log \
+    && chmod 666 /var/log/php_errors.log \
+    && usermod -u ${UID} www-data \
     && groupmod -g ${GID} www-data \
     && chown -R www-data:www-data /var/www \
-    && chown -R www-data:www-data /var/log/apache2 \
     && chown -R www-data:www-data /var/log/php_errors.log
 
 WORKDIR /var/www/html
 
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["apache2-foreground"]
+CMD ["php-fpm"]

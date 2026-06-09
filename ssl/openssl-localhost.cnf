@@ -1,0 +1,74 @@
+[req]
+default_bits = 2048
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+x509_extensions = v3_req
+prompt = no
+
+[req_distinguished_name]
+C = BR
+ST = Local
+L = Local
+O = Docker Dev Server
+OU = Local Dev
+CN = localhost
+
+[v3_req]
+basicConstraints = critical, CA:FALSE
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = localhost
+DNS.2 = localhost1
+DNS.3 = localhost2
+DNS.4 = *.localhost
+DNS.5 = joomla6.localhost
+DNS.6 = joomla5.localhost
+DNS.7 = wordpress6.localhost
+DNS.8 = mobile.localhost
+DNS.9 = sistemaocb.localhost
+DNS.10 = hirleicarlos-github-io.localhost
+DNS.11 = tarefas.localhost
+DNS.12 = images.localhost
+DNS.13 = cache.localhost
+DNS.14 = joomla5.localhost1
+DNS.15 = joomla5.localhost2
+DNS.16 = joomla6.localhost1
+DNS.17 = joomla6.localhost2
+DNS.18 = wordpress6.localhost1
+DNS.19 = wordpress6.localhost2
+DNS.20 = mobile.localhost1
+DNS.21 = mobile.localhost2
+DNS.22 = sistemaocb.localhost1
+DNS.23 = sistemaocb.localhost2
+DNS.24 = hirleicarlos-github-io.localhost1
+DNS.25 = hirleicarlos-github-io.localhost2
+DNS.26 = tarefas.localhost1
+DNS.27 = tarefas.localhost2
+DNS.28 = images.localhost1
+DNS.29 = images.localhost2
+DNS.30 = cache.localhost1
+DNS.31 = cache.localhost2
+DNS.32 = *.1.localhost
+DNS.33 = *.2.localhost
+DNS.34 = joomla5.1.localhost
+DNS.35 = joomla5.2.localhost
+DNS.36 = joomla6.1.localhost
+DNS.37 = joomla6.2.localhost
+DNS.38 = wordpress6.1.localhost
+DNS.39 = wordpress6.2.localhost
+DNS.40 = mobile.1.localhost
+DNS.41 = mobile.2.localhost
+DNS.42 = sistemaocb.1.localhost
+DNS.43 = sistemaocb.2.localhost
+DNS.44 = hirleicarlos-github-io.1.localhost
+DNS.45 = hirleicarlos-github-io.2.localhost
+DNS.46 = tarefas.1.localhost
+DNS.47 = tarefas.2.localhost
+DNS.48 = images.1.localhost
+DNS.49 = images.2.localhost
+DNS.50 = cache.1.localhost
+DNS.51 = cache.2.localhost
+IP.1 = 127.0.0.1

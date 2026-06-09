@@ -1,28 +1,92 @@
-version: "1.1.0"
+name: docker-dev-server
 
 services:
-  web:
-    build: .
-    container_name: php_server
+  router:
+    image: haproxy:3.2-alpine
+    container_name: docker_router
     ports:
-      - "80:80"
-      - "443:443"
+      - "${ROUTER_BIND_IP:-127.0.0.1}:${ROUTER_HTTP_PORT:-80}:80"
+      - "${ROUTER_BIND_IP:-127.0.0.1}:${ROUTER_HTTPS_PORT:-443}:443"
     volumes:
-      - /home/hirleicarlos/projetos:/var/www/html:rw
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    restart: unless-stopped
+    depends_on:
+      - web
+      - nginx
+
+  web:
+    image: docker-dev-server-apache:local
+    build:
+      context: .
+      args:
+        PHP_VERSION: ${PHP_VERSION:-8.3}
+        UID: ${HOST_UID:-1000}
+        GID: ${HOST_GID:-1000}
+    container_name: localhost1
+    expose:
+      - "80"
+      - "443"
+    volumes:
+      - "${PROJECTS_PATH:-/home/hirleicarlos/projetos}:/var/www/html:rw"
     restart: unless-stopped
     depends_on:
       - db
+
+  php-fpm:
+    image: docker-dev-server-php-fpm:local
+    build:
+      context: .
+      dockerfile: Dockerfile.fpm
+      args:
+        PHP_VERSION: ${PHP_VERSION:-8.3}
+        UID: ${HOST_UID:-1000}
+        GID: ${HOST_GID:-1000}
+    container_name: php_fpm_server
+    volumes:
+      - "${PROJECTS_PATH:-/home/hirleicarlos/projetos}:/var/www/html:rw"
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.29-alpine
+    container_name: localhost2
+    expose:
+      - "80"
+      - "443"
+    volumes:
+      - "${PROJECTS_PATH:-/home/hirleicarlos/projetos}:/var/www/html:ro"
+      - ./nginx/conf/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./ssl/localhost.crt:/etc/nginx/ssl/localhost.crt:ro
+      - ./ssl/localhost.key:/etc/nginx/ssl/localhost.key:ro
+    restart: unless-stopped
+    depends_on:
+      - php-fpm
 
   db:
     image: mariadb:11
     container_name: mariadb_server
     restart: unless-stopped
     environment:
-      MARIADB_ROOT_PASSWORD: root
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-root}
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-joomla6}
+      MARIADB_USER: ${MARIADB_USER:-joomla}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-joomla}
     ports:
-      - "3307:3306"
+      - "${DB_PORT:-3307}:3306"
     volumes:
-      - /home/hirleicarlos/db:/var/lib/mysql
+      - "${DB_PATH:-/home/hirleicarlos/db}:/var/lib/mysql"
+
+  postgres:
+    image: postgres:17
+    container_name: postgres_server
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-joomla}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-joomla}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - "${POSTGRES_PATH:-/home/hirleicarlos/postgres}:/var/lib/postgresql/data"
 
   phpmyadmin:
     image: phpmyadmin:latest
@@ -32,7 +96,7 @@ services:
       PMA_HOST: db
       PMA_PORT: 3306
     ports:
-      - "8081:80"
+      - "${PHPMYADMIN_PORT:-8081}:80"
     depends_on:
       - db
 
@@ -41,9 +105,9 @@ services:
     container_name: node_server
     working_dir: /app
     volumes:
-      - /home/hirleicarlos/projetos:/app
+      - "${PROJECTS_PATH:-/home/hirleicarlos/projetos}:/app"
     ports:
-      - "3000:3000"
-      - "8082:8082"
+      - "${NODE_PORT:-3000}:3000"
+      - "${NODE_ALT_PORT:-8082}:8082"
     tty: true
     stdin_open: true

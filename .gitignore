@@ -21,6 +21,13 @@ Thumbs.db
 .idea/
 
 # =========================
+# AI agent local files
+# =========================
+AGENTS.md
+CLAUDE.md
+.claude/
+
+# =========================
 # Node
 # =========================
 node_modules/
@@ -96,11 +103,11 @@ logs/
 # =========================
 
 ssl/*
+!ssl/*.cnf
 *.log
 .DS_Store
 *Zone.Identifier*
 *.key
 *.crt
-
-ssl/localhost.crt
-ssl/localhost.key
+*.csr
+*.srl
