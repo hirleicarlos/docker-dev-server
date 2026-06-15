@@ -7,6 +7,7 @@ ARG GID=1000
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev \
+    libwebp-dev \
     libfreetype6-dev \
     libzip-dev \
     libicu-dev \
@@ -23,7 +24,7 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     lsb-release \
     openssl \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     && docker-php-ext-install \
         mysqli \
         pdo \
@@ -36,6 +37,8 @@ RUN apt-get update && apt-get install -y \
         zip \
         exif \
         bcmath \
+        soap \
+        sockets \
         opcache \
     && a2enmod rewrite vhost_alias ssl \
     && apt-get clean \
