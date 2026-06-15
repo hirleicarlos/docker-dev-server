@@ -9,7 +9,7 @@
 
 ---
 
-## Visao Geral
+## Visão Geral
 
 Este repositório mantém um ambiente local de desenvolvimento web com Docker Desktop no Windows e integração WSL/Ubuntu.
 
@@ -59,7 +59,7 @@ O Nginx não passa pelo Apache. O roteamento acontece antes, no container `docke
 |----------|-----|----------|
 | Apache | `https://joomla6.1.localhost/` | `localhost1` |
 | Nginx | `https://joomla6.2.localhost/` | `localhost2` |
-| Padrao legado | `https://joomla6.localhost/` | Apache |
+| Padrão legado | `https://joomla6.localhost/` | Apache |
 
 ### Joomla 5
 
@@ -67,7 +67,23 @@ O Nginx não passa pelo Apache. O roteamento acontece antes, no container `docke
 |----------|-----|----------|
 | Apache | `https://joomla5.1.localhost/` | `localhost1` |
 | Nginx | `https://joomla5.2.localhost/` | `localhost2` |
-| Padrao legado | `https://joomla5.localhost/` | Apache |
+| Padrão legado | `https://joomla5.localhost/` | Apache |
+
+### Site pessoal
+
+| Ambiente | URL | Servidor |
+|----------|-----|----------|
+| Apache | `https://hirleicarlos-github-io.1.localhost/` | `localhost1` |
+| Nginx | `https://hirleicarlos-github-io.2.localhost/` | `localhost2` + `php_fpm_server` |
+| Produção | `https://hirleicarlos.github.io/` | GitHub Pages |
+
+O repositório local do site fica em:
+
+```text
+/home/hirleicarlos/projetos/meg-load/hirleicarlos-github-io
+```
+
+Como o projeto está dentro da pasta `meg-load`, Apache e Nginx possuem um mapeamento explícito para esse diretório. O acesso Nginx continua direto ao PHP-FPM, sem passar pelo Apache.
 
 ### Ferramentas
 
@@ -120,7 +136,7 @@ docker-server/
 
 ---
 
-## Servicos Docker
+## Serviços Docker
 
 | Serviço Compose | Container | Imagem | Função |
 |-----------------|-----------|--------|--------|
@@ -135,7 +151,7 @@ docker-server/
 
 ---
 
-## Variaveis de Ambiente
+## Variáveis de Ambiente
 
 Copie o exemplo:
 
@@ -258,7 +274,7 @@ wsl -d Ubuntu -- docker info --format "{{.OperatingSystem}}"
 
 ---
 
-## Fluxo Padrao Apos Mudancas
+## Fluxo Padrão Após Mudanças
 
 Sempre que alterar `docker-compose.yml`, `Dockerfile`, `Dockerfile.fpm`, Apache, Nginx, HAProxy, PHP ou SSL, recrie a stack.
 
@@ -293,7 +309,7 @@ Esse fluxo recria containers e imagens, mas preserva os dados em:
 Para os principais domínios locais, use:
 
 ```text
-127.0.0.1 joomla5.localhost joomla6.localhost joomla5.1.localhost joomla6.1.localhost joomla5.2.localhost joomla6.2.localhost localhost1 localhost2
+127.0.0.1 joomla5.localhost joomla6.localhost joomla5.1.localhost joomla6.1.localhost joomla5.2.localhost joomla6.2.localhost hirleicarlos-github-io.1.localhost hirleicarlos-github-io.2.localhost localhost1 localhost2
 ```
 
 Local do arquivo:
@@ -356,7 +372,7 @@ O PostgreSQL inicia em `postgres` para permitir criar e apagar bancos Joomla man
 
 ---
 
-## Comandos Uteis
+## Comandos Úteis
 
 Status dos containers:
 
@@ -403,7 +419,7 @@ docker compose restart
 
 ---
 
-## Testes Rapidos
+## Testes Rápidos
 
 Validar Apache:
 
@@ -424,6 +440,13 @@ curl -I http://joomla6.1.localhost/
 curl -I http://joomla6.2.localhost/
 ```
 
+Validar o site pessoal nos dois servidores:
+
+```bash
+curl -k -I https://hirleicarlos-github-io.1.localhost/
+curl -k -I https://hirleicarlos-github-io.2.localhost/
+```
+
 Validar bancos:
 
 ```bash
@@ -433,7 +456,7 @@ docker compose exec postgres psql -U joomla -d postgres -c "SELECT version();"
 
 ---
 
-## Arquivos Locais Nao Versionados
+## Arquivos Locais Não Versionados
 
 Este projeto ignora arquivos locais e sensíveis:
 
@@ -450,7 +473,7 @@ Este projeto ignora arquivos locais e sensíveis:
 
 ---
 
-## Principios de Engenharia
+## Princípios de Engenharia
 
 | Princípio | Aplicação |
 |-----------|-----------|
@@ -474,4 +497,4 @@ Este projeto ignora arquivos locais e sensíveis:
 ---
 
 © 2026 — Hirlei Carlos<br>
-Desenvolvedor Full Stack Sênior | PHP & Joomla | Docker | Apache & Nginx | Ambientes Locais
+Desenvolvedor Full Stack Sênior | PHP & Joomla | Sistemas Corporativos | Docker | Governo e Educação
