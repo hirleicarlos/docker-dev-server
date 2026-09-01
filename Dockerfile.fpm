@@ -4,6 +4,12 @@ FROM php:${PHP_VERSION}-fpm
 ARG UID=1000
 ARG GID=1000
 
+# OPcache nao aparece na lista de docker-php-ext-install abaixo de proposito.
+# Ele ja vem carregado nas imagens oficiais 8.3, 8.4 e 8.5 - conferido com
+# php -r 'var_dump(extension_loaded("Zend OPcache"));' nas tres. Instalar de
+# novo era redundante e, a partir do 8.5, quebra o build: naquela versao o
+# OPcache passou a ser compilado estaticamente, o phpize nao gera .so e o
+# docker-php-ext-install falha em "cp: cannot stat 'modules/*'".
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev \
@@ -21,6 +27,8 @@ RUN apt-get update && apt-get install -y \
     nano \
     default-mysql-client \
     postgresql-client \
+    msmtp \
+    msmtp-mta \
     gnupg \
     ca-certificates \
     lsb-release \
@@ -40,7 +48,6 @@ RUN apt-get update && apt-get install -y \
         bcmath \
         soap \
         sockets \
-        opcache \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -49,6 +56,15 @@ RUN pecl install xdebug \
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 COPY php/php.ini /usr/local/etc/php/php.ini
+
+# Habilita a funcao mail() do PHP. O php.ini ja aponta sendmail_path para
+# /usr/sbin/sendmail; o pacote msmtp-mta e quem cria esse binario. Sem ele,
+# mail() retorna false com "sendmail: not found", falhando em silencio.
+COPY php/msmtprc /etc/msmtprc
+RUN chmod 644 /etc/msmtprc \
+    && touch /var/log/msmtp.log \
+    && chmod 666 /var/log/msmtp.log \
+    && test -x /usr/sbin/sendmail
 
 RUN touch /var/log/php_errors.log \
     && chmod 666 /var/log/php_errors.log \

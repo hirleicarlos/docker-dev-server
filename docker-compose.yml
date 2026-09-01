@@ -28,6 +28,11 @@ services:
       - "443"
     volumes:
       - "${PROJECTS_PATH:-/home/hirleicarlos/projetos}:/var/www/html:rw"
+      - ./apache/conf/php-version.conf:/etc/apache2/conf-enabled/php-version.conf:ro
+      # Vhosts montados como volume, igual ao default.conf do Nginx. Assim
+      # acrescentar um projeto e "editar e restart", sem rebuild da imagem.
+      - ./apache/sites/vhost.conf:/etc/apache2/sites-available/000-default.conf:ro
+      - ./apache/sites/vhost-ssl.conf:/etc/apache2/sites-available/default-ssl.conf:ro
     restart: unless-stopped
     depends_on:
       - db
@@ -45,6 +50,122 @@ services:
     volumes:
       - "${PROJECTS_PATH:-/home/hirleicarlos/projetos}:/var/www/html:rw"
     restart: unless-stopped
+    # Alias compartilhado com o php-fpm-84. Apache e Nginx apontam para
+    # "php-fpm-active" e nunca precisam mudar de configuracao.
+    networks:
+      default:
+        aliases:
+          - php-fpm-active
+
+  # PHP 8.4.
+  #
+  # ATENCAO: as tres versoes de PHP-FPM dividem o alias de rede "php-fpm-active"
+  # e apenas UMA pode estar no ar por vez. Se duas subirem, o DNS do Docker
+  # alterna entre elas e parte das requisicoes vai para a versao errada.
+  #
+  # Nao usam "profiles" de proposito: com profile elas sumiam da listagem do
+  # Compose e do Dockge quando paradas, e a ideia e poder ligar e desligar cada
+  # uma pela interface. O preco e que "docker compose up -d" sobe as tres.
+  # Depois de um "up -d", rode ./php-switch.sh <versao> para deixar so uma.
+  php-fpm-84:
+    image: docker-dev-server-php-fpm-84:local
+    build:
+      context: .
+      dockerfile: Dockerfile.fpm
+      args:
+        PHP_VERSION: ${PHP_VERSION_84:-8.4}
+        UID: ${HOST_UID:-1000}
+        GID: ${HOST_GID:-1000}
+    container_name: php_fpm_84_server
+    volumes:
+      - "${PROJECTS_PATH:-/home/hirleicarlos/projetos}:/var/www/html:rw"
+      # Montado como volume para trocar o destino do sendmail sem rebuild.
+      - ./php/msmtprc:/etc/msmtprc:ro
+    restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - php-fpm-active
+
+  # PHP 8.5. Mesma regra do 8.4: divide o alias "php-fpm-active", so uma versao
+  # no ar por vez. Trocar com: ./php-switch.sh 8.5
+  #
+  # Versao da producao (Hostinger) desde 08/2026. O ambiente local espelha ela.
+  php-fpm-85:
+    image: docker-dev-server-php-fpm-85:local
+    build:
+      context: .
+      dockerfile: Dockerfile.fpm
+      args:
+        PHP_VERSION: ${PHP_VERSION_85:-8.5}
+        UID: ${HOST_UID:-1000}
+        GID: ${HOST_GID:-1000}
+    container_name: php_fpm_85_server
+    volumes:
+      - "${PROJECTS_PATH:-/home/hirleicarlos/projetos}:/var/www/html:rw"
+      - ./php/msmtprc:/etc/msmtprc:ro
+    restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - php-fpm-active
+
+  # Worker de fila. Backup, sincronizacao e comparacao pesada saem da requisicao
+  # HTTP e rodam aqui.
+  #
+  # Sem ele o pedido fica registrado como "em andamento" e nunca sai do lugar:
+  # a tela mostra um processo que ninguem esta executando. Por isso sobe junto
+  # com o PHP-FPM e reinicia sozinho.
+  #
+  # --max-time faz o processo encerrar de hora em hora; o restart o traz de
+  # volta ja com o codigo novo, sem precisar lembrar de reiniciar apos deploy.
+  # Worker de fila do PHP 8.3.
+  #
+  # restart "no" de proposito, diferente dos workers 8.4 e 8.5. O projeto
+  # apontado por padrao (db-sync-ide) exige PHP >= 8.4 no proprio
+  # composer.json, entao sob 8.3 ele quebra na hora. Com "unless-stopped" o
+  # container reiniciava sem parar e nao dava nem para desliga-lo pela
+  # interface: nunca ficava parado tempo suficiente.
+  #
+  # Com "no" ele tenta uma vez, falha e fica parado - visivel e controlavel.
+  # Para usar de verdade, aponte WORKER_WORKDIR_83 para um projeto que rode
+  # em 8.3.
+  worker:
+    image: docker-dev-server-php-fpm:local
+    container_name: worker_server
+    working_dir: ${WORKER_WORKDIR_83:-/var/www/html/meg-load/db-sync-ide}
+    command: php artisan queue:work --sleep=3 --timeout=3600 --max-time=3600
+    volumes:
+      - "/home/hirleicarlos/projetos:/var/www/html:rw"
+    restart: "no"
+    depends_on:
+      - db
+
+  # Mesmo worker na versao 8.4, no par do php-fpm-84. O php-switch.sh troca os
+  # dois juntos para que a fila rode sempre no mesmo PHP que serve as paginas.
+  worker-84:
+    image: docker-dev-server-php-fpm-84:local
+    container_name: worker_84_server
+    working_dir: ${WORKER_WORKDIR_84:-/var/www/html/meg-load/db-sync-ide}
+    command: php artisan queue:work --sleep=3 --timeout=3600 --max-time=3600
+    volumes:
+      - "/home/hirleicarlos/projetos:/var/www/html:rw"
+    restart: unless-stopped
+    depends_on:
+      - db
+
+  # Mesmo worker na versao 8.5, no par do php-fpm-85, pela mesma razao: fila e
+  # paginas precisam rodar no mesmo PHP.
+  worker-85:
+    image: docker-dev-server-php-fpm-85:local
+    container_name: worker_85_server
+    working_dir: ${WORKER_WORKDIR_85:-/var/www/html/meg-load/db-sync-ide}
+    command: php artisan queue:work --sleep=3 --timeout=3600 --max-time=3600
+    volumes:
+      - "/home/hirleicarlos/projetos:/var/www/html:rw"
+    restart: unless-stopped
+    depends_on:
+      - db
 
   nginx:
     image: nginx:1.29-alpine
@@ -75,6 +196,34 @@ services:
     volumes:
       - "${DB_PATH:-/home/hirleicarlos/db}:/var/lib/mysql"
 
+  # MySQL 5.7 para testar contra o mesmo motor das hospedagens dos clientes.
+  #
+  # Existe porque MariaDB e MySQL divergem em collation, tipos e sintaxe. Sem um
+  # MySQL local, o primeiro teste de uma sincronizacao gerada seria contra o
+  # banco de producao do cliente, o que nao e aceitavel.
+  #
+  # Fica em fim de vida oficial desde outubro de 2023, o que e coerente: as
+  # hospedagens que precisamos espelhar tambem estao nessa versao.
+  mysql57:
+    image: mysql:5.7
+    container_name: mysql57_server
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL57_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL57_DATABASE:-espelho}
+      MYSQL_USER: ${MYSQL57_USER:-joomla}
+      MYSQL_PASSWORD: ${MYSQL57_PASSWORD:-joomla}
+    # utf8mb4 no servidor, para que o charset de cada banco seja uma escolha
+    # explicita na hora de criar, e nao heranca silenciosa do padrao antigo.
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --sql-mode=STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+    ports:
+      - "${MYSQL57_PORT:-3308}:3306"
+    volumes:
+      - "${MYSQL57_PATH:-/home/hirleicarlos/db-mysql57}:/var/lib/mysql"
+
   postgres:
     image: postgres:17
     container_name: postgres_server
@@ -99,6 +248,23 @@ services:
       - "${PHPMYADMIN_PORT:-8081}:80"
     depends_on:
       - db
+
+  # Caixa de entrada de desenvolvimento. Recebe todo e-mail enviado pelos
+  # projetos e nunca repassa para fora, entao nao ha risco de disparar mensagem
+  # real para um endereco de cliente que esteja num dump de banco.
+  # Interface: http://localhost:8025
+  # SMTP para as aplicacoes: host "mailpit", porta 1025, sem autenticacao.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: mailpit_server
+    restart: unless-stopped
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    ports:
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
 
   node:
     image: node:20
